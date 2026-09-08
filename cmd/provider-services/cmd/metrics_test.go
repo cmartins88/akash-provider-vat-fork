@@ -34,6 +34,13 @@ func TestMetricsRouterPprof(t *testing.T) {
 		{"goroutine served", true, "/debug/pprof/goroutine", http.StatusOK},
 		{"allocs served", true, "/debug/pprof/allocs", http.StatusOK},
 		{"cmdline served", true, "/debug/pprof/cmdline", http.StatusOK},
+
+		// PathPrefix is a plain string prefix: without the trailing slash on
+		// "/debug/pprof/", these would match and serve profiles from routes
+		// nobody registered.
+		{"lookalike prefix not matched", true, "/debug/pprofx", http.StatusNotFound},
+		{"lookalike subpath not matched", true, "/debug/pprofx/heap", http.StatusNotFound},
+		{"bare index still served", true, "/debug/pprof", http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()

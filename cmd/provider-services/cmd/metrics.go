@@ -25,21 +25,27 @@ func makeMetricsRouter(withPprof bool) *mux.Router {
 	))
 
 	if withPprof {
-		// ⛔ PathPrefix, NOT HandleFunc("/pprof/"). gorilla/mux matches paths
-		// EXACTLY, so registering "/pprof/" serves only that literal path --
-		// every NAMED profile (heap, goroutine, allocs, block, mutex) 404s,
-		// because those are dispatched by pprof.Index off the remaining path.
+		// ⛔ TWO ROUTING TRAPS HERE, BOTH LOAD-BEARING.
 		//
-		// This is not hypothetical: operator/inventory/cmd.go registers pprof
-		// that way, and on a live cluster /debug/pprof/ returns 200 while
-		// /debug/pprof/heap returns 404. Heap is the profile worth having.
-		debug := router.PathPrefix("/debug/pprof").Subrouter()
-		debug.HandleFunc("/cmdline", pprof.Cmdline)
-		debug.HandleFunc("/profile", pprof.Profile)
-		debug.HandleFunc("/symbol", pprof.Symbol)
-		debug.HandleFunc("/trace", pprof.Trace)
+		// 1. Do NOT use HandleFunc("/debug/pprof/", pprof.Index) alone.
+		//    gorilla/mux matches paths EXACTLY, so that serves only the literal
+		//    index path and every NAMED profile (heap, goroutine, allocs,
+		//    block, mutex) 404s -- they are dispatched by pprof.Index off the
+		//    remaining path segment and must actually be routed to it.
+		//    operator/inventory/cmd.go registers it that way, and on a live
+		//    cluster /debug/pprof/ returns 200 while /debug/pprof/heap
+		//    returns 404. Heap is the profile worth having.
+		//
+		// 2. The catch-all prefix MUST keep its trailing slash. PathPrefix is a
+		//    plain string prefix, so "/debug/pprof" would also match
+		//    "/debug/pprofx" and serve profiles from an unintended route.
+		router.HandleFunc("/debug/pprof", pprof.Index)
+		router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		router.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		// Index also serves the named profiles from the trailing path segment.
-		debug.PathPrefix("/").HandlerFunc(pprof.Index)
+		router.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 	}
 
 	return router
