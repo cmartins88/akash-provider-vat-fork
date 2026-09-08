@@ -107,6 +107,7 @@ const (
 	FlagReclamationWindow                = "reclamation-window"
 	FlagManifestTimeout                  = "manifest-timeout"
 	FlagMetricsListener                  = "metrics-listener"
+	FlagPprofEnabled                     = "pprof-enabled"
 	FlagWithdrawalPeriod                 = "withdrawal-period"
 	FlagLeaseFundsMonitorInterval        = "lease-funds-monitor-interval"
 	FlagMinimumBalance                   = "minimum-balance"
@@ -499,6 +500,7 @@ func doRunCmd(ctx context.Context, cmd *cobra.Command, _ []string) error {
 	manifestTimeout := viper.GetDuration(FlagManifestTimeout)
 	broadcastTimeout := viper.GetDuration(FlagTxBroadcastTimeout)
 	metricsListener := viper.GetString(FlagMetricsListener)
+	pprofEnabled := viper.GetBool(FlagPprofEnabled)
 	providerConfig := viper.GetString(FlagProviderConfig)
 	cachedResultMaxAge := viper.GetDuration(FlagCachedResultMaxAge)
 	rpcQueryTimeout := viper.GetDuration(FlagRPCQueryTimeout)
@@ -525,7 +527,7 @@ func doRunCmd(ctx context.Context, cmd *cobra.Command, _ []string) error {
 
 	var metricsRouter http.Handler
 	if len(metricsListener) != 0 {
-		metricsRouter = makeMetricsRouter()
+		metricsRouter = makeMetricsRouter(pprofEnabled)
 	}
 
 	group := fromctx.MustErrGroupFromCtx(ctx)
