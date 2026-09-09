@@ -107,6 +107,7 @@ const (
 	FlagReclamationWindow                = "reclamation-window"
 	FlagManifestTimeout                  = "manifest-timeout"
 	FlagMetricsListener                  = "metrics-listener"
+	FlagPprofEnabled                     = "pprof-enabled"
 	FlagWithdrawalPeriod                 = "withdrawal-period"
 	FlagLeaseFundsMonitorInterval        = "lease-funds-monitor-interval"
 	FlagMinimumBalance                   = "minimum-balance"
@@ -499,6 +500,7 @@ func doRunCmd(ctx context.Context, cmd *cobra.Command, _ []string) error {
 	manifestTimeout := viper.GetDuration(FlagManifestTimeout)
 	broadcastTimeout := viper.GetDuration(FlagTxBroadcastTimeout)
 	metricsListener := viper.GetString(FlagMetricsListener)
+	pprofEnabled := viper.GetBool(FlagPprofEnabled)
 	providerConfig := viper.GetString(FlagProviderConfig)
 	cachedResultMaxAge := viper.GetDuration(FlagCachedResultMaxAge)
 	rpcQueryTimeout := viper.GetDuration(FlagRPCQueryTimeout)
@@ -524,8 +526,15 @@ func doRunCmd(ctx context.Context, cmd *cobra.Command, _ []string) error {
 	logger.Info("starting provider service")
 
 	var metricsRouter http.Handler
+	// Fail fast rather than accepting a flag that cannot take effect: with no
+	// metrics listener there is no server for pprof to be served on, and a
+	// silently ignored --pprof-enabled looks identical to one that worked.
+	if pprofEnabled && len(metricsListener) == 0 {
+		return fmt.Errorf("--%s requires --%s: there is no listener to serve pprof on", FlagPprofEnabled, FlagMetricsListener)
+	}
+
 	if len(metricsListener) != 0 {
-		metricsRouter = makeMetricsRouter()
+		metricsRouter = makeMetricsRouter(pprofEnabled)
 	}
 
 	group := fromctx.MustErrGroupFromCtx(ctx)
